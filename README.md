@@ -6,7 +6,7 @@
 
 ## Demo
 
-![文字动画](./demo.jpg)  
+![文字动画](https://zuhaowan.zuhaowan.com/img/demo.jpg)  
 
 ## 注意
 
