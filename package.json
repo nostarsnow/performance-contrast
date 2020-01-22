@@ -1,0 +1,15 @@
+{
+  "name": "performance-contrast",
+  "version": "1.0.0",
+  "description": "Two Web Page Performance Contrast",
+  "main": "index.js",
+  "author": "nostar",
+  "license": "ISC",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "devDependencies": {
+    "marked": "^0.7.0",
+    "puppeteer": "^2.0.0"
+  }
+}
