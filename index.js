@@ -5,7 +5,7 @@ const { contrast } = require('./helpers');
 (async () => {
   const url1 = 'https://www.zuhaowan.com/'
   const url2 = 'https://www.zuhaowan.com/indexV3'
-  const times = 3;
+  const times = 7;
   const title = '新旧首页性能对比'
   console.log('正在执行中......')
   const { result1, result2 } = await contrast(
