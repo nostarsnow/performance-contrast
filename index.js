@@ -3,14 +3,22 @@ const exec = require('child_process').exec
 const marked = require('marked');
 const { contrast } = require('./helpers');
 (async () => {
-  const url1 = 'https://www.zuhaowan.com/'
-  const url2 = 'https://www.zuhaowan.com/indexV3'
+  const url1 = 'https://www.baidu.com/index'
+  const url2 = 'https://www.baidu.com/index'
   const times = 7;
   const title = '新旧首页性能对比'
   console.log('正在执行中......')
   const { result1, result2 } = await contrast(
-    url1,
-    url2,
+    {
+      url: url1,
+      cookie: ``,
+      domain: 'https://www.baidu.com/index'
+    },
+    {
+      url: url2,
+      cookie: ``,
+      domain: 'https://www.baidu.com/index'
+    },
     times
   );
   console.log('执行完毕.正在生产报告......')

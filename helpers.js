@@ -9,7 +9,7 @@ const formatPerformanceTiming = (timing, ...names) => {
     white,
     dom,
     domready,
-    onload
+    onload,
   };
 };
 
@@ -20,25 +20,37 @@ const formatMetrics = (metrics, ...name) => {
     LayoutDuration, // 页面布局总时间
     ScriptDuration, // 页面js代码执行总时间
     JSHeapUsedSize, // 页面占用堆内存大小,
-    JSHeapTotalSize // 总的页面堆内存大小
+    JSHeapTotalSize, // 总的页面堆内存大小
   } = metrics;
   return {
     Nodes,
     JSEventListeners,
     LayoutDuration,
     ScriptDuration,
-    JsUsed: Number(((JSHeapUsedSize / JSHeapTotalSize) * 100).toFixed(2))
+    JsUsed: Number(((JSHeapUsedSize / JSHeapTotalSize) * 100).toFixed(2)),
   };
 };
-const getPageData  = async (url) => {
-  return new Promise(async resolve => {
+const addCookies = async (page, cookies_str, domain) => {
+  let cookies = cookies_str.split(';').map((pair) => {
+    let name = pair.trim().slice(0, pair.trim().indexOf('='));
+    let value = pair.trim().slice(pair.trim().indexOf('=') + 1);
+    return { name, value, url: domain };
+  });
+  await Promise.all(
+    cookies.map((pair) => {
+      return page.setCookie(pair);
+    })
+  );
+};
+const getPageData = async (url) => {
+  return new Promise(async (resolve) => {
     const browser = await puppeteer.launch({
-      headless: false
+      headless: false,
     });
     const page = await browser.newPage();
     await page.setViewport({
       width: 1920,
-      height: 1080
+      height: 1080,
     });
     await page.setRequestInterception(true);
     await page.setCacheEnabled(false);
@@ -46,24 +58,27 @@ const getPageData  = async (url) => {
       total: 0,
       js: 0,
       css: 0,
-      img: 0
-    }
-    page.on('request', request => {
-      let url = request.url()
+      img: 0,
+    };
+    page.on('request', (request) => {
+      let url = request.url();
       count.total++;
-      if ( /\.js(\?.*)?/i.test(url) ){
-        count.js++
+      if (/\.js(\?.*)?/i.test(url)) {
+        count.js++;
       }
-      if ( /\.css(\?.*)?/i.test(url) ){
-        count.css++
+      if (/\.css(\?.*)?/i.test(url)) {
+        count.css++;
       }
-      if ( /\.(png|jpg|gif|jpeg)(\?.*)?/i.test(url) ){
-        count.img++
+      if (/\.(png|jpg|gif|jpeg)(\?.*)?/i.test(url)) {
+        count.img++;
       }
       request.continue();
     });
-    await page.goto(url, {
-      waitUntil: 'load'
+    if (url.cookie) {
+      await addCookies(page, url.cookie, url.domain);
+    }
+    await page.goto(url.url, {
+      waitUntil: 'load',
     });
     const performanceTiming = JSON.parse(
       await page.evaluate(() => JSON.stringify(window.performance.timing))
@@ -72,72 +87,71 @@ const getPageData  = async (url) => {
     await browser.close();
     resolve({
       timing: formatPerformanceTiming(performanceTiming),
-      metrics:formatMetrics(gitMetrics),
+      metrics: formatMetrics(gitMetrics),
       count,
-    })
-  })
+    });
+  });
 };
 const contrast = async (url1, url2, times = 2) => {
-  return new Promise(async resolve => {
+  return new Promise(async (resolve) => {
     let result1 = [];
     let result2 = [];
     async function queue(arr) {
-      let res = []
+      let res = [];
       for (let fn of arr) {
-        var data= await fn();
+        var data = await fn();
         res.push(data);
       }
-      return await res
+      return await res;
     }
     await queue(
       Array(times)
         .fill('')
-        .map(v => {
+        .map((v) => {
           return async () => {
             result1.push(await getPageData(url1));
             result2.push(await getPageData(url2));
             return '';
           };
         })
-    ).then(data=>{
+    ).then((data) => {
       resolve({
-        result1:result1.map(v=>{
+        result1: result1.map((v) => {
           return {
             ...v.timing,
             ...v.metrics,
-            ...v.count
-          }
+            ...v.count,
+          };
         }),
-        result2:result2.map(v=>{
+        result2: result2.map((v) => {
           return {
             ...v.timing,
             ...v.metrics,
-            ...v.count
-          }
-        })
+            ...v.count,
+          };
+        }),
       });
-    })
-
+    });
   });
 };
-const extractDataFromTracing = (path, name) =>{
-  new Promise(resolve => {
+const extractDataFromTracing = (path, name) => {
+  new Promise((resolve) => {
     fs.readFile(path, (err, data) => {
       const tracing = JSON.parse(data);
 
       const resourceTracings = tracing.traceEvents.filter(
-        x =>
+        (x) =>
           x.cat === 'devtools.timeline' &&
           typeof x.args.data !== 'undefined' &&
           typeof x.args.data.url !== 'undefined' &&
           x.args.data.url.endsWith(name)
       );
       const resourceTracingSendRequest = resourceTracings.find(
-        x => x.name === 'ResourceSendRequest'
+        (x) => x.name === 'ResourceSendRequest'
       );
       const resourceId = resourceTracingSendRequest.args.data.requestId;
       const resourceTracingEnd = tracing.traceEvents.filter(
-        x =>
+        (x) =>
           x.cat === 'devtools.timeline' &&
           typeof x.args.data !== 'undefined' &&
           typeof x.args.data.requestId !== 'undefined' &&
@@ -145,21 +159,21 @@ const extractDataFromTracing = (path, name) =>{
       );
       const resourceTracingStartTime = resourceTracingSendRequest.ts / 1000;
       const resourceTracingEndTime =
-        resourceTracingEnd.find(x => x.name === 'ResourceFinish').ts / 1000;
+        resourceTracingEnd.find((x) => x.name === 'ResourceFinish').ts / 1000;
 
       fs.unlink(path, () => {
         resolve({
           start: resourceTracingStartTime,
-          end: resourceTracingEndTime
+          end: resourceTracingEndTime,
         });
       });
     });
   });
-}
+};
 module.exports = {
   extractDataFromTracing,
   formatPerformanceTiming,
   formatMetrics,
   getPageData,
-  contrast
+  contrast,
 };
